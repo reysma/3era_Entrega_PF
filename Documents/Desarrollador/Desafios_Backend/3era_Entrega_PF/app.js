@@ -10,6 +10,11 @@ import MongoStore from 'connect-mongo'
 import bodyParser from 'body-parser'
 import session from 'express-session'
 import sessionRouter from  './router/session.router.js'
+import passport from "passport";
+import cookieParser from "cookie-parser";
+import initializePassport from "./config/passport.config.js";
+import config from "./config/config.js";
+
 
 
 
@@ -19,12 +24,14 @@ const app = express();
 // traermos información de post como JSON
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: true}))
+app.use(cookieParser(config.cookieSecret))
 app.use(express.static( __dirname + '/public'))
 
 //Configurar motor plantillas
 app.engine('handlebars', handlebars.engine());
 app.set('views', __dirname + '/views');
 app.set('view engine', 'handlebars');
+
 const MONGO_URI = process.env.MONGO_URL
 app.use(session({
   store: MongoStore.create({
@@ -33,13 +40,16 @@ app.use(session({
           useNewUrlParser: true,
           useUnifiedTopology: true
       },
-      ttl: 100
+      ttl: 1000
   }),
-
+  secret: process.env.ADMIN_PASSWORD,
   resave: true,
   saveUninitialized: true
 }))
-secret= process.env.ADMIN_PASSWORD
+initializePassport()
+app.use(passport.initialize())
+app.use(passport.session())
+
 mongoose.connect(MONGO_URI, 
   { dbName: "baseCRUD" },  
   (error) => { 
@@ -59,15 +69,13 @@ mongoose.connect(MONGO_URI,
 
 
 //Ruta de Vistas
+app.use('/products', passportCall('jwt'), productRouter)
 app.use('/session', sessionRouter);
-app.use('/products', productRouter) ;
+
 
 app.use('/views_products', viewsProduct );
 
 app.use('/carts', cartsRouter);
-
-
-
 
 
 mongoose.set("strictQuery", false);
